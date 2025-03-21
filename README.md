@@ -389,6 +389,10 @@ We welcome contributions of all kinds! Whether you're fixing a typo, improving d
 
 This project is open source and available under the [MIT License](LICENSE).
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=langmanus/langmanus&type=Date)](https://www.star-history.com/#langmanus/langmanus&Date)
+
 ## Acknowledgments
 
 Special thanks to all the open source projects and contributors that make LangManus possible. We stand on the shoulders of giants.

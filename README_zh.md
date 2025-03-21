@@ -380,6 +380,10 @@ make format
 
 本项目是开源的，基于 [MIT 许可证](LICENSE)。
 
+## Star 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=langmanus/langmanus&type=Date)](https://www.star-history.com/#langmanus/langmanus&Date)
+
 ## 致谢
 
 特别感谢所有让 LangManus 成为可能的开源项目和贡献者。我们站在巨人的肩膀上。
