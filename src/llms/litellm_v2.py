@@ -1,19 +1,71 @@
+import langchain_community.chat_models.litellm as litellm
+from typing import Any, Dict, Literal, Optional, Type, TypeVar, Union, Mapping
+from langchain_core.messages import (
+    AIMessageChunk,
+    BaseMessageChunk,
+    ChatMessageChunk,
+    FunctionMessageChunk,
+    HumanMessageChunk,
+    SystemMessageChunk,
+    ToolCallChunk,
+)
+
+
+def _convert_delta_to_message_chunk(
+    _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk]
+) -> BaseMessageChunk:
+    role = _dict.get("role")
+    content = _dict.get("content") or ""
+    if _dict.get("function_call"):
+        additional_kwargs = {"function_call": dict(_dict["function_call"])}
+    elif _dict.get("reasoning_content"):
+        # support output reasoning_content
+        additional_kwargs = {"reasoning_content": _dict["reasoning_content"]}
+    else:
+        additional_kwargs = {}
+
+    tool_call_chunks = []
+    if raw_tool_calls := _dict.get("tool_calls"):
+        additional_kwargs["tool_calls"] = raw_tool_calls
+        try:
+            tool_call_chunks = [
+                ToolCallChunk(
+                    name=rtc["function"].get("name"),
+                    args=rtc["function"].get("arguments"),
+                    id=rtc.get("id"),
+                    index=rtc["index"],
+                )
+                for rtc in raw_tool_calls
+            ]
+        except KeyError:
+            pass
+
+    if role == "user" or default_class == HumanMessageChunk:
+        return HumanMessageChunk(content=content)
+    elif role == "assistant" or default_class == AIMessageChunk:
+        return AIMessageChunk(
+            content=content,
+            additional_kwargs=additional_kwargs,
+            tool_call_chunks=tool_call_chunks,
+        )
+    elif role == "system" or default_class == SystemMessageChunk:
+        return SystemMessageChunk(content=content)
+    elif role == "function" or default_class == FunctionMessageChunk:
+        return FunctionMessageChunk(content=content, name=_dict["name"])
+    elif role or default_class == ChatMessageChunk:
+        return ChatMessageChunk(content=content, role=role)  # type: ignore[arg-type]
+    else:
+        return default_class(content=content)  # type: ignore[call-arg]
+
+
+# monkey patch: support output reasoning_content
+litellm._convert_delta_to_message_chunk = _convert_delta_to_message_chunk
+
 from langchain_community.chat_models import ChatLiteLLM
 
 from operator import itemgetter
-from typing import (
-    Any,
-    Dict,
-    Literal,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
 
 from langchain_core.language_models import LanguageModelInput
-
 
 from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
 from langchain_core.output_parsers.openai_tools import (
@@ -68,7 +120,7 @@ class ChatLiteLLMV2(ChatLiteLLM):
                 )
             tool_name = convert_to_openai_tool(schema)["function"]["name"]
             bind_kwargs = self._filter_disabled_params(
-                tool_choice=tool_name,
+                tool_choice={"type": "function", "function": {"name": tool_name}},
                 parallel_tool_calls=False,
                 strict=strict,
                 ls_structured_output_format={
@@ -117,3 +169,52 @@ class ChatLiteLLMV2(ChatLiteLLM):
             return RunnableMap(raw=llm) | parser_with_fallback
         else:
             return llm | output_parser
+
+    def _filter_disabled_params(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Filter parameters that are not supported by the underlying model.
+
+        Args:
+            **kwargs: Parameters to be filtered.
+
+        Returns:
+            Dict[str, Any]: Dictionary containing only the supported parameters.
+        """
+        # Get the parameters supported by the underlying model
+        supported_params = self.llm_kwargs()
+
+        # Filter parameters, keeping only the supported ones
+        filtered_kwargs = {}
+
+        for key, value in kwargs.items():
+            # Check if the underlying model supports this parameter
+            if key in supported_params or key.startswith("ls_"):
+                filtered_kwargs[key] = value
+
+        return filtered_kwargs
+
+    def llm_kwargs(self) -> Dict[str, Any]:
+        """
+        Returns a dictionary with the parameters supported by the underlying LLM model.
+
+        Returns:
+            Dict[str, Any]: Dictionary containing the parameters supported by the model.
+        """
+        # Common parameters supported by Groq models
+        supported_params = {
+            "model",
+            "temperature",
+            "top_p",
+            "n",
+            "stream",
+            "stop",
+            "max_tokens",
+            "user",
+            "tool_choice",
+            "tools",
+            "tool-use",
+            "response_format",
+        }
+        if self.model and str(self.model).startswith("openai"):
+            supported_params.add("parallel_tool_calls")
+        return supported_params

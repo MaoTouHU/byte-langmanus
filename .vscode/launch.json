@@ -65,6 +65,17 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
             }
+        },
+        {
+            "name": "Python: browser.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/tools/browser.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }

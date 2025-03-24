@@ -16,7 +16,7 @@ import asyncio
 from typing import AsyncGenerator, Dict, List, Any
 
 from src.graph import build_graph
-from src.config import TEAM_MEMBERS, BROWSER_HISTORY_DIR
+from src.config import TEAM_MEMBERS, TEAM_MEMBER_CONFIGRATIONS, BROWSER_HISTORY_DIR
 from src.service.workflow_service import run_agent_workflow
 
 # Configure logging
@@ -69,6 +69,7 @@ class ChatRequest(BaseModel):
     search_before_planning: Optional[bool] = Field(
         False, description="Whether to search before planning"
     )
+    team_members: Optional[list] = Field(None, description="enabled team members")
 
 
 @app.post("/api/chat/stream")
@@ -114,6 +115,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     request.debug,
                     request.deep_thinking_mode,
                     request.search_before_planning,
+                    request.team_members,
                 ):
                     # Check if client is still connected
                     if await req.is_disconnected():
@@ -125,6 +127,9 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     }
             except asyncio.CancelledError:
                 logger.info("Stream processing cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Error in workflow: {e}")
                 raise
 
         return EventSourceResponse(
@@ -158,4 +163,19 @@ async def get_browser_history_file(filename: str):
         raise
     except Exception as e:
         logger.error(f"Error retrieving browser history file: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/team_members")
+async def get_team_members():
+    """
+    Get the configuration of all team members.
+
+    Returns:
+        dict: A dictionary containing team member configurations
+    """
+    try:
+        return {"team_members": TEAM_MEMBER_CONFIGRATIONS}
+    except Exception as e:
+        logger.error(f"Error getting team members: {e}")
         raise HTTPException(status_code=500, detail=str(e))
