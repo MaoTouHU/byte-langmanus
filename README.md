@@ -50,8 +50,8 @@ LangManus is a community-driven AI automation framework that builds upon the inc
 
 ```bash
 # Clone the repository
-git clone https://github.com/langmanus/langmanus.git
-cd langmanus
+git clone https://github.com/MaoTouHU/byte-langmanus.git
+cd byte-langmanus
 
 # Install dependencies, uv will take care of the python interpreter and venv creation
 uv sync
